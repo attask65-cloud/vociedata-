@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Voice Data Logger Pro</title>
+<style>
+  :root {
+    --bg-main: #0b0f19;
+    --bg-card: #131a2a;
+    --border-subtle: rgba(255, 255, 255, 0.08);
+    --accent: #3b82f6;
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --success: #10b981;
+    --danger: #ef4444;
+  }
+
+  * {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: radial-gradient(circle at top, #172036 0%, var(--bg-main) 75%);
+    color: var(--text-primary);
+    margin: 0;
+    padding: 16px;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .top-section {
+    width: 100%;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .status-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  }
+
+  .mic-btn {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    background: linear-gradient(145deg, #1e293b, #131a2a);
+    color: var(--text-primary);
+    font-size: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s ease;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  }
+
+  .mic-btn.listening {
+    background: linear-gradient(145deg, #ef4444, #dc2626);
+    border-color: #fca5a5;
+    box-shadow: 0 0 25px rgba(239, 68, 68, 0.65);
+    animation: pulse 1.5s infinite;
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+  }
+
+  .status-text {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .status-text.error {
+    color: #f87171;
+  }
+
+  .live-preview {
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 3px;
+    min-height: 40px;
+  }
+
+  .heard-raw {
+    font-size: 12px;
+    color: #64748b;
+    min-height: 16px;
+    text-align: center;
+  }
+
+  .log-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: 20px;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  }
+
+  .log-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 6px;
+  }
+
+  .count-badge {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 6px 10px;
+    border-radius: 20px;
+    white-space: nowrap;
+  }
+
+  .count-badge span {
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  .actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .btn {
+    padding: 8px 12px;
+    border: none;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform 0.1s;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  .btn:active { transform: scale(0.94); }
+  .btn-sheet { background: linear-gradient(135deg, #2563eb, #1d4ed8); color: white; }
+  .btn-copy { background: linear-gradient(135deg, #10b981, #059669); color: white; }
+  .btn-clear { background: rgba(255, 255, 255, 0.08); color: var(--text-secondary); }
+
+  #log {
+    width: 100%;
+    flex: 1;
+    font-family: "SF Mono", Menlo, monospace;
+    font-size: 16px;
+    line-height: 1.5;
+    padding: 12px;
+    border: 1px solid var(--border-subtle);
+    border-radius: 12px;
+    background: rgba(11, 15, 25, 0.6);
+    color: #e2e8f0;
+    resize: none;
+    outline: none;
+  }
+</style>
+</head>
+<body>
+
+  <div class="top-section">
+    <div class="status-card">
+      <button class="mic-btn" id="micBtn" onclick="toggleListening()">🎤</button>
+      <div class="status-text" id="statusText">माइक पर टैप करें और 4 नंबर (1–8) बोलें</div>
+      <div class="live-preview" id="livePreview">--:--</div>
+      <div class="heard-raw" id="heardRaw"></div>
+    </div>
+
+    <div class="log-card">
+      <div class="log-header">
+        <div class="count-badge">Entries: <span id="entryCount">0</span></div>
+        <div class="actions">
+          <a href="https://docs.google.com/spreadsheets/d/10ygpihBpBcXtWsBqbhsbSUHGg1JDoCOR0M5SHZemevs/edit#gid=0&range=E2" target="_blank" rel="noopener noreferrer" class="btn btn-sheet">Open Sheet</a>
+          <button class="btn btn-copy" onclick="copyToClipboard()">Copy All</button>
+          <button class="btn btn-clear" onclick="clearLog()">Clear</button>
+        </div>
+      </div>
+      <textarea id="log" oninput="updateCount()" placeholder="AB:CD फॉर्मेट में बोला गया डेटा यहाँ सेव होगा..."></textarea>
+    </div>
+  </div>
+
+<script>
+  const logArea = document.getElementById('log');
+  const entryCount = document.getElementById('entryCount');
+  const micBtn = document.getElementById('micBtn');
+  const statusText = document.getElementById('statusText');
+  const livePreview = document.getElementById('livePreview');
+  const heardRaw = document.getElementById('heardRaw');
+
+  let recognition;
+  let isListening = false;
+  let digitBuffer = '';
+
+  const wordToDigit = {
+    'one': '1', 'ek': '1', 'एक': '1', 'वन': '1',
+    'two': '2', 'do': '2', 'दो': '2', 'टू': '2',
+    'three': '3', 'teen': '3', 'तीन': '3', 'थ्री': '3',
+    'four': '4', 'char': '4', 'चार': '4', 'फोर': '4',
+    'five': '5', 'panch': '5', 'पांच': '5', 'पाँच': '5', 'फाइव': '5',
+    'six': '6', 'chhah': '6', 'chhe': '6', 'छह': '6', 'छे': '6', 'सिक्स': '6',
+    'seven': '7', 'saat': '7', 'सात': '7', 'सेवन': '7',
+    'eight': '8', 'aath': '8', 'आठ': '8', 'एट': '8'
+  };
+
+  function extractDigits(text) {
+    let normalized = text.toLowerCase();
+    for (const [word, digit] of Object.entries(wordToDigit)) {
+      normalized = normalized.replace(new RegExp(word, 'g'), digit);
+    }
+    // केवल 1 से 8 तक के अंक ही स्वीकार करें
+    return normalized.replace(/[^1-8]/g, '');
+  }
+
+  function updatePreview(tempDigits = '') {
+    const combined = (digitBuffer + tempDigits).padEnd(4, '-');
+    livePreview.textContent = `${combined[0]}${combined[1]}:${combined[2]}${combined[3]}`;
+  }
+
+  if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    recognition = new SpeechRecognition();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = 'hi-IN';
+
+    recognition.onresult = (event) => {
+      let interimTranscript = '';
+
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const transcript = event.results[i][0].transcript;
+        if (event.results[i].isFinal) {
+          heardRaw.textContent = `सुना: "${transcript.trim()}"`;
+          const newDigits = extractDigits(transcript);
+
+          if (newDigits.length > 0) {
+            digitBuffer += newDigits;
+
+            while (digitBuffer.length >= 4) {
+              const entry = digitBuffer.substring(0, 4);
+              digitBuffer = digitBuffer.substring(4);
+              saveData(entry);
+            }
+            updatePreview();
+          }
+        } else {
+          interimTranscript += transcript;
+        }
+      }
+
+      if (interimTranscript) {
+        heardRaw.textContent = `सुन रहा हूँ: "${interimTranscript.trim()}"`;
+        const tempDigits = extractDigits(interimTranscript);
+        updatePreview(tempDigits);
+      }
+    };
+
+    recognition.onerror = (event) => {
+      statusText.classList.add('error');
+      if (event.error === 'not-allowed') {
+        statusText.textContent = "माइक की परमिशन नहीं मिली (ब्राउज़र सेटिंग्स जांचें)";
+        stopListening(true);
+      } else if (event.error === 'no-speech') {
+        statusText.textContent = "कोई आवाज़ सुनाई नहीं दी, बोलते रहें...";
+        statusText.classList.remove('error');
+      } else if (event.error === 'network') {
+        statusText.textContent = "इंटरनेट कनेक्शन ज़रूरी है";
+      } else {
+        statusText.textContent = `एरर: ${event.error}`;
+      }
+    };
+
+    recognition.onend = () => {
+      if (isListening) {
+        setTimeout(() => {
+          try { recognition.start(); } catch (e) {}
+        }, 200);
+      }
+    };
+  } else {
+    statusText.textContent = "यह ब्राउज़र वॉइस रिकग्निशन सपोर्ट नहीं करता";
+    statusText.classList.add('error');
+    micBtn.disabled = true;
+  }
+
+  function toggleListening() {
+    if (!recognition) return;
+    isListening ? stopListening() : startListening();
+  }
+
+  async function startListening() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+
+      isListening = true;
+      digitBuffer = '';
+      livePreview.textContent = '--:--';
+      heardRaw.textContent = '';
+      statusText.classList.remove('error');
+
+      recognition.start();
+      micBtn.classList.add('listening');
+      statusText.textContent = "सुन रहा हूँ... 4 नंबर बोलें";
+    } catch (err) {
+      statusText.classList.add('error');
+      statusText.textContent = `माइक एक्सेस फेल: ${err.name}`;
+    }
+  }
+
+  function stopListening(keepError = false) {
+    isListening = false;
+    try { recognition.stop(); } catch (e) {}
+    micBtn.classList.remove('listening');
+    if (!keepError) {
+      statusText.classList.remove('error');
+      statusText.textContent = "माइक पर टैप करें और 4 नंबर (1–8) बोलें";
+    }
+  }
+
+  function saveData(code) {
+    const formattedCode = `${code.substring(0, 2)}:${code.substring(2, 4)}`;
+    if (logArea.value && !logArea.value.endsWith('\n')) {
+      logArea.value += '\n';
+    }
+    logArea.value += formattedCode + '\n';
+    logArea.scrollTop = logArea.scrollHeight;
+    updateCount();
+  }
+
+  function updateCount() {
+    const lines = logArea.value.split('\n').filter(line => line.trim() !== '');
+    entryCount.textContent = lines.length;
+  }
+
+  function copyToClipboard() {
+    if (!logArea.value.trim()) return;
+    navigator.clipboard.writeText(logArea.value.trim()).then(() => {
+      const btn = document.querySelector('.btn-copy');
+      btn.textContent = 'Copied ✓';
+      setTimeout(() => btn.textContent = 'Copy All', 1500);
+    });
+  }
+
+  function clearLog() {
+    if (confirm('क्या आप सारा डेटा साफ़ करना चाहते हैं?')) {
+      logArea.value = '';
+      digitBuffer = '';
+      livePreview.textContent = '--:--';
+      heardRaw.textContent = '';
+      updateCount();
+    }
+  }
+</script>
+
+</body>
+</html>
